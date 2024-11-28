@@ -44,8 +44,6 @@ fi
 FIREWALLD="$(which firewalld)"
 YUM="$(which yum)"
 APT="$(which apt)"
-APK="$(which apk)"
-SCRIPT="$0"
 
 #|--------------------------------------------------------------------------
 #| Main
@@ -66,26 +64,24 @@ echo -e "[${PURPLE}i${NC}] Verifying if firewalld is available"
 if ! [[ -x "$FIREWALLD" ]]; then
     echo -e "[${PURPLE}i${NC}] firewalld not available, installing"
     if [[ "$OS" == "RHEL" ]]; then
-        yum -y install firewalld > /dev/null 2> /dev/null
-        if [[ $? -eq 0 ]]; then
+        if yum -y install firewalld > /dev/null 2>&1; then
             echo -e "[${GREEN}✓${NC}] firewalld is installed"
-            systemctl enable --now firewalld > /dev/null 2> /dev/null
+            systemctl enable --now firewalld > /dev/null 2>&1
         else
             echo -e "[${RED}✗${NC}] Couldn't install firewalld. Aborting!"
             exit 1
         fi
     elif [[ "$OS" == "DEBIAN" ]]; then
-        apt -y install firewalld > /dev/null 2> /dev/null
-        if [[ $? -eq 0 ]]; then
+        if apt-get -y install firewalld > /dev/null 2>&1; then
             echo -e "[${GREEN}✓${NC}] firewalld is installed"
-            systemctl enable --now firewalld > /dev/null 2> /dev/null
+            systemctl enable --now firewalld > /dev/null 2>&1
         else
             echo -e "[${RED}✗${NC}] Couldn't install firewalld. Aborting!"
             exit 1
         fi
     fi
 else
-echo -e "[${GREEN}✓${NC}] firewalld is installed"
+    echo -e "[${GREEN}✓${NC}] firewalld is installed"
 fi
 
 echo ""
@@ -99,8 +95,7 @@ if firewall-cmd --permanent --get-ipsets | grep -q "${BLACKLIST}-ip4"; then
 fi
 
 echo -e "[${PURPLE}i${NC}] Creating new ipset for ${BLACKLIST}-ip4"
-firewall-cmd --permanent --new-ipset="${BLACKLIST}-ip4" --type=hash:net --option=family=inet --option=hashsize=4096 --option=maxelem=200000 --zone=drop > /dev/null 2> /dev/null
-if [[ $? -eq 0 ]];then
+if firewall-cmd --permanent --new-ipset="${BLACKLIST}-ip4" --type=hash:net --option=family=inet --option=hashsize=4096 --option=maxelem=200000 --zone=drop > /dev/null 2>&1; then
     echo -e "[${GREEN}✓${NC}] ipset for ${BLACKLIST}-ip4 successfully created"
 else
     echo -e "[${RED}✗${NC}] Couldn't create the blacklist ${BLACKLIST}-ip4. Aborting!"
@@ -118,8 +113,7 @@ if firewall-cmd --permanent --get-ipsets | grep -q "${BLACKLIST}-ip6"; then
 fi
 
 echo -e "[${PURPLE}i${NC}] Creating new ipset for ${BLACKLIST}-ip6"
-firewall-cmd --permanent --new-ipset="${BLACKLIST}-ip6" --type=hash:net --option=family=inet6 --option=hashsize=4096 --option=maxelem=200000 --zone=drop > /dev/null 2> /dev/null
-if [[ $? -eq 0 ]];then
+if firewall-cmd --permanent --new-ipset="${BLACKLIST}-ip6" --type=hash:net --option=family=inet6 --option=hashsize=4096 --option=maxelem=200000 --zone=drop > /dev/null 2>&1; then
     echo -e "[${GREEN}✓${NC}] ipset for ${BLACKLIST}-ip6 successfully created"
 else
     echo -e "[${RED}✗${NC}] Couldn't create the blacklist ${BLACKLIST}-ip6. Aborting!"
@@ -128,24 +122,26 @@ fi
 
 echo ""
 
-# Create the tmp directory
-mkdir -p $TMPDIR
-
-if [[ $? -eq 0 ]];then
+if mkdir -p $TMPDIR; then
     echo -e "[${PURPLE}i${NC}] Retrieving the requested zones to be blacklisted"
     echo ""
+    overall_status=0
     for z in $ZONES; do
         echo -e "[${PURPLE}i${NC}] Downloading zone ${YELLOW}$z${NC}"
-        curl -s -L -o "$TMPDIR/$z-ip4.zone" "https://www.ipdeny.com/ipblocks/data/aggregated/${z,,}-aggregated.zone" > /dev/null 2> /dev/null
-        curl -s -L -o "$TMPDIR/$z-ip6.zone" "https://www.ipdeny.com/ipv6/ipaddresses/aggregated/${z,,}-aggregated.zone" > /dev/null 2> /dev/null
-        if [[ $? -eq 0 ]];then
+        curl -s -L -o "$TMPDIR/${z}-ip4.zone" "https://www.ipdeny.com/ipblocks/data/aggregated/${z,,}-aggregated.zone" > /dev/null 2>&1
+        zone_status="$?"
+        curl -s -L -o "$TMPDIR/${z}-ip6.zone" "https://www.ipdeny.com/ipv6/ipaddresses/aggregated/${z,,}-aggregated.zone" > /dev/null 2>&1
+        ip6_status="$?"
+        zone_status=$((zone_status + ip6_status))
+        if [[ $zone_status -eq 0 ]]; then
             echo -e "[${GREEN}✓${NC}] OK"
         else
             echo -e "[${RED}✗${NC}] Failed"
         fi
         echo ""
+        overall_status=$((overall_status + zone_status))
     done
-    if [[ $? -eq 0 ]];then
+    if [[ $overall_status -eq 0 ]]; then
         echo -e "[${GREEN}✓${NC}] All zones were successfully downloaded"
         echo ""
     else
@@ -160,8 +156,7 @@ fi
 # Load the zone(s) into the blacklist
 for f in "$TMPDIR"/*-ip4.zone; do
     echo -e "[${PURPLE}i${NC}] Adding ipv4 target ranges from ${YELLOW}$f${NC}"
-    firewall-cmd --permanent --ipset="${BLACKLIST}-ip4" --add-entries-from-file="$f" > /dev/null
-    if [[ $? -eq 0 ]];then
+    if firewall-cmd --permanent --ipset="${BLACKLIST}-ip4" --add-entries-from-file="$f" > /dev/null; then
         echo -e "[${GREEN}✓${NC}] OK"
     else
         echo -e "[${RED}✗${NC}] Failed"
@@ -171,8 +166,7 @@ done
 
 for f in "$TMPDIR"/*-ip6.zone; do
     echo -e "[${PURPLE}i${NC}] Adding ipv6 target ranges from ${YELLOW}$f${NC}"
-    firewall-cmd --permanent --ipset="${BLACKLIST}-ip6" --add-entries-from-file="$f" > /dev/null
-    if [[ $? -eq 0 ]];then
+    if firewall-cmd --permanent --ipset="${BLACKLIST}-ip6" --add-entries-from-file="$f" > /dev/null; then
         echo -e "[${GREEN}✓${NC}] OK"
     else
         echo -e "[${RED}✗${NC}] Failed"
