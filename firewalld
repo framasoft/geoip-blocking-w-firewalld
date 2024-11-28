@@ -25,14 +25,13 @@ TMPDIR="/tmp/geoip"
 #| Colors
 #|--------------------------------------------------------------------------
 
-RED='\033[0;91m'
-GREEN='\033[0;92m'
-CYAN='\033[0;96m'
-YELLOW='\033[0;93m'
-PURPLE='\033[0;95m'
-BLUE='\033[0;94m'
-BOLD='\033[1m'
-NC='\033[0m'
+if [[ -t 1 ]]; then
+    RED='\033[0;91m'
+    GREEN='\033[0;92m'
+    YELLOW='\033[0;93m'
+    PURPLE='\033[0;95m'
+    NC='\033[0m'
+fi
 
 if [[ -z $ZONES ]]; then
     echo "${RED}No zones to ban. Exiting${NC}"
