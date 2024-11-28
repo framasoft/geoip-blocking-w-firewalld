@@ -15,6 +15,7 @@
 #| Options
 #|--------------------------------------------------------------------------
 
+IPSET="ipset"
 if [[ -f /etc/default/firewalld-geoip ]]; then
     source /etc/default/firewalld-geoip
 fi
@@ -28,6 +29,7 @@ TMPDIR="/tmp/geoip"
 if [[ -t 1 ]]; then
     RED='\033[0;91m'
     GREEN='\033[0;92m'
+    CYAN='\033[0;96m'
     YELLOW='\033[0;93m'
     PURPLE='\033[0;95m'
     NC='\033[0m'
@@ -189,5 +191,10 @@ rm -rf $TMPDIR
 
 echo ""
 
-echo -e "[${PURPLE}i${NC}] Blocking approx. ${YELLOW}$(ipset list ${BLACKLIST}-ip4 | wc -l)${NC} ipv4 target ranges and approx. ${YELLOW}$(ipset list ${BLACKLIST}-ip6 | wc -l)${NC} ipv6 target ranges."
+if type "$IPSET"; then
+    echo -e "[${PURPLE}i${NC}] Blocking approx. ${YELLOW}$("$IPSET" list ${BLACKLIST}-ip4 | wc -l)${NC} ipv4 target ranges and approx. ${YELLOW}$("$IPSET" list ${BLACKLIST}-ip6 | wc -l)${NC} ipv6 target ranges."
+else
+    echo -e "${YELLOW}Unable to provide stats, ${IPSET} is not reachable.${NC}"
+    echo -e "You can provide the correct path with ${CYAN}IPSET=/correct/path${NC} in ${CYAN}/etc/default/firewalld-geoip${NC}."
+fi
 echo -e "[${GREEN}✓${NC}] Firewall successfully configured!"
