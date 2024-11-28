@@ -15,7 +15,9 @@
 #| Options
 #|--------------------------------------------------------------------------
 
-ZONES="ru by" # Retrieve the zone's name here https://www.ipdeny.com/ipblocks/
+if [[ -f /etc/default/firewalld-geoip ]]; then
+    source /etc/default/firewalld-geoip
+fi
 BLACKLIST="geoip-blacklist"
 TMPDIR="/tmp/geoip"
 
@@ -31,6 +33,10 @@ PURPLE='\033[0;95m'
 BLUE='\033[0;94m'
 BOLD='\033[1m'
 NC='\033[0m'
+
+if [[ -z $ZONES ]]; then
+    echo "${RED}No zones to ban. Exiting${NC}"
+fi
 
 #|--------------------------------------------------------------------------
 #| Global variables
